@@ -1,0 +1,33 @@
+#board {
+	border: 3px solid black;
+	display: inline-block;
+	font-size: 0;
+}
+
+.square {
+	height: 80px;
+	width: 80px;
+	outline: 1px solid red;
+	display: inline-block;
+	text-align: center;
+}
+
+.dark {
+	background: rgba(10, 10, 10, 0.1);
+}
+
+.square.selected {
+	background: #03a9f4;
+}
+
+.piece {
+	height: 80px;
+	width: 80px;
+	font-size: 4rem;
+	pointer-events: none;
+	user-select: none;
+}
+
+.coords {
+	    font-size: 15px;
+}
