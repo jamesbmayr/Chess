@@ -1,9 +1,10 @@
 /* start the game */
-	var lastSelectedPiece;
-	var game;
-	createGame();
-	drawBoard();
-	drawPieces();
+	var lastSelectedPiece
+	var game
+	var shadowBoard
+	createGame()
+	drawBoard()
+	drawPieces()
 
 /* creating the game */
 	function createGame() {
@@ -20,7 +21,7 @@
 						symbol: "&#9817;",
 						x: 1,
 						y: 2,
-						player: 1
+		 				player: 1
 					},
 					pawn2: {
 						type: "pawn2",
@@ -113,17 +114,17 @@
 						y: 1,
 						player: 1
 					},
-					queen: {
+					queen1: {
 						type: "queen1",
 						symbol: "&#9813;",
-						x: 4,
+						x: 5,
 						y: 1,
 						player: 1
 					},
-					king: {
+					king1: {
 						type: "king1",
 						symbol: "&#9812;",
-						x: 5,
+						x: 4,
 						y: 1,
 						player: 1
 					}
@@ -227,17 +228,17 @@
 						y: 8,
 						player: 2
 					},
-					queen: {
+					queen1: {
 						type: "queen1",
 						symbol: "&#9819;",
-						x: 4,
+						x: 5,
 						y: 8,
 						player: 2
 					},
-					king: {
+					king1: {
 						type: "king1",
 						symbol: "&#9818;",
-						x: 5,
+						x: 4,
 						y: 8,
 						player: 2
 					}
@@ -277,7 +278,6 @@
 			}
 	}
 
-
 	function selectPiece(boardPiece){
 		// check whose turn it is
 			if (game.status.turn == boardPiece.dataset.player){
@@ -286,9 +286,7 @@
 					lastSelectedPiece = boardPiece;
 
 				// unhighlights other squares
-					document.querySelectorAll(".selected").forEach(function (square) {
-						square.className = "square"
-					})
+					unhighlightSquares()
 
 				// highlight this square
 					boardPiece.parentNode.className += " selected"
@@ -296,15 +294,27 @@
 				// get piece object and get possible moves			
 					var piece = game["player" + boardPiece.dataset.player][boardPiece.dataset.name];
 					game.status.possibleMoves = getPossibleMoves(piece)
-					console.log(game.status.possibleMoves)
+
+					for(var i = 0; i < game.status.possibleMoves.length; i++){
+						highlightSquare(game.status.possibleMoves[i])
+					}
 			}
 	}
 
+	function highlightSquare(coord){
+		document.querySelector("[data-x='" + coord[0] + "'][data-y='" + coord[1] + "']").className += " legalMove"
+	}
+
+	function unhighlightSquares(){
+		document.querySelectorAll(".square").forEach(function(square){
+			square.className = "square"
+		})
+	}
 
 /* getting moves */
 	function getPossibleMoves(piece) {
 		// get the moves based on the type of piece
-			switch (piece.type) {
+			switch (piece.type.substring(0, piece.type.length - 1)) {
 				case "pawn":
 					return getPawnMoves(piece.x, piece.y)
 					break
@@ -329,36 +339,65 @@
 	function getRookMoves(x1, y1) {
 		var validMoves = []
 
-		for (var x2 = 1; x2 <= 8; x2++) {
-			for (var y2 = 1; y2 <= 8; y2++) {
-				if (!(x2 == x1 && y2 == y1)) {
-					if (x2 == x1 || y2 == y1) {
-						validMoves.push([x2, y2])
-					}
-				}
-			}
-		}
-
-		return validMoves
-	}
-
-	function getRookMoves(x1, y1) {
-		var validMoves = []
-
 		// up
-			var x2 = x1;
-			var y2 = y1;
+			var x2 = x1
+			var y2 = y1
+			var occupant = false
 
-			while(y2 <= 8){
-				if
+			while (y2 < 8 && !occupant){
+				y2++
+				occupant = getOccupant(x2, y2)
 
+				//if the square is not occupied OR the square is occupied by an opponent's piece, then this is a valid move
+				if(!occupant || game.status.turn != occupant.player){			
+					validMoves.push([x2, y2])
+				} 
 			}
 
 		// down
+			x2 = x1
+			y2 = y1
+			occupant = false
 
-		// left
+			while (y2 > 1 && !occupant){
+				y2--
+				occupant = getOccupant(x2, y2)
+
+				//if the square is not occupied OR the square is occupied by an opponent's piece, then this is a valid move
+				if(!occupant || game.status.turn != occupant.player){			
+					validMoves.push([x2, y2])
+				} 
+			}
 
 		// right
+			x2 = x1
+			y2 = y1
+			occupant = false
+
+			while (x2 < 8 && !occupant){
+				x2++
+				occupant = getOccupant(x2, y2)
+
+				//if the square is not occupied OR the square is occupied by an opponent's piece, then this is a valid move
+				if(!occupant || game.status.turn != occupant.player){			
+					validMoves.push([x2, y2])
+				} 
+			}
+
+		// left
+			x2 = x1
+			y2 = y1
+			occupant = false
+
+			while (x2 > 1 && !occupant){
+				x2--
+				occupant = getOccupant(x2, y2)
+
+				//if the square is not occupied OR the square is occupied by an opponent's piece, then this is a valid move
+				if(!occupant || game.status.turn != occupant.player){			
+					validMoves.push([x2, y2])
+				} 
+			}
 
 		return validMoves
 	}
@@ -366,15 +405,69 @@
 	function getBishopMoves(x1, y1) {
 		var validMoves = []
 
-		for (var x2 = 1; x2 <= 8; x2++) {
-			for (var y2 = 1; y2 <= 8; y2++) {
-				if (!(x2 == x1 && y2 == y1)) {
-					if (Math.abs(y2 - y1) == Math.abs(x2 - x1)) {
-						validMoves.push([x2, y2])
-					}
-				}
+		// up-left
+			var x2 = x1
+			var y2 = y1
+			var occupant = false
+
+			while (y2 < 8 && x2 > 1 && !occupant){
+				y2++
+				x2--
+				occupant = getOccupant(x2, y2)
+
+				//if the square is not occupied OR the square is occupied by an opponent's piece, then this is a valid move
+				if(!occupant || game.status.turn != occupant.player){			
+					validMoves.push([x2, y2])
+				} 
 			}
-		}
+
+		// down-left
+			x2 = x1
+			y2 = y1
+			occupant = false
+
+			while (y2 > 1 && x2 > 1 && !occupant){
+				y2--
+				x2--
+				occupant = getOccupant(x2, y2)
+
+				//if the square is not occupied OR the square is occupied by an opponent's piece, then this is a valid move
+				if(!occupant || game.status.turn != occupant.player){			
+					validMoves.push([x2, y2])
+				} 
+			}
+
+		// up-right
+			x2 = x1
+			y2 = y1
+			occupant = false
+
+			while (y2 < 8 && x2 < 8 && !occupant){
+				y2++
+				x2++
+				occupant = getOccupant(x2, y2)
+
+				//if the square is not occupied OR the square is occupied by an opponent's piece, then this is a valid move
+				if(!occupant || game.status.turn != occupant.player){			
+					validMoves.push([x2, y2])
+				} 
+			}
+
+		// down-right
+			x2 = x1
+			y2 = y1
+			occupant = false
+
+			while (y2 > 1 && x2 < 8 && !occupant){
+				x2++
+				y2--
+				occupant = getOccupant(x2, y2)
+
+				//if the square is not occupied OR the square is occupied by an opponent's piece, then this is a valid move
+				if(!occupant || game.status.turn != occupant.player){			
+					validMoves.push([x2, y2])
+				} 
+			}
 
 		return validMoves
 	}
@@ -382,10 +475,12 @@
 	function getKingMoves(x1, y1) {
 		var validMoves = []
 
-		for (var x2 = 1; x2 <= 8; x2++) {
-			for (var y2 = 1; y2 <= 8; y2++) {
-				if (!(x2 == x1 && y2 == y1)) {
-					if ((Math.abs(x2 - x1) <= 1) && (Math.abs(y2 - y1) <= 1)) {
+		for (var x2 = (x1-1); x2 <= (x1+1); x2++) {
+			for (var y2 = (y1-1); y2 <= (y1+1); y2++) {
+				// if (1) this isn't the square the king is on (2) & (3) we're still on the board
+				if (!(x2 == x1 && y2 == y1) && (x2 <= 8 && x2 >= 1) && (y2 <= 8 && y2 >= 1) ) {
+					var occupant = getOccupant(x2, y2)
+					if(!occupant || game.status.turn != occupant.player){			
 						validMoves.push([x2, y2])
 					}
 				}
@@ -396,55 +491,82 @@
 	}
 
 	function getQueenMoves(x1, y1) {
-		var validMoves = []
+		var rookMoves = getRookMoves(x1, y1)
+		var bishopMoves = getBishopMoves(x1, y1)
 
-		for (var x2 = 1; x2 <= 8; x2++) {
-			for (var y2 = 1; y2 <= 8; y2++) {
-				if (!(x2 == x1 && y2 == y1)) {
-					if (x2 == x1 || y2 == y1) {
-						validMoves.push([x2, y2])
-					} else if (Math.abs(y2 - y1) == Math.abs(x2 - x1)) {
-						validMoves.push([x2, y2])
-					}
-				}
-			}
-		}
-
-		return validMoves
+		return rookMoves.concat(bishopMoves)
 	}
 
 	function getPawnMoves(x1, y1) {
 		var validMoves = []
 
-		for (var x2 = 1; x2 <= 8; x2++) {
-			for (var y2 = 1; y2 <= 8; y2++) {
-				if (!(x2 == x1 && y2 == y1)) {
-
-					// if this isn't the square the pawn is on
-
-					if (game.status.turn == 1) {
-						if ((x2 == x1) && (y2 - y1 == 1)) {
-							validMoves.push([x2, y2])
-						} else if ((x2 == x1) && (y2 - y1 == 2) && (y1 == 2)) {
-							validMoves.push([x2, y2])	
-						} else if ((Math.abs(x2 - x1) == 1) && (y2 - y1 == 1) && (isOccupied(x2, y2) /* ??? */)) {
-							validMoves.push([x2, y2])
-						} else if (false /* en passant */) {
-							validMoves.push([x2, y2])	
-						}
-					}
-					else if (game.status.turn == 2) {
-						if ((x2 == x1) && (y2 - y1 == -1)) {
-							validMoves.push([x2, y2])
-						} else if ((x2 == x1) && (y2 - y1 == -2) && (y1 == 7)) {
-							validMoves.push([x2, y2])	
-						} else if ((Math.abs(x2 - x1) == 1) && (y2 - y1 == -1) && (isOccupied(x2, y2) /* ??? */)) {
-							validMoves.push([x2, y2])
-						} else if (false /* en passant */) {
-							validMoves.push([x2, y2])	
-						}
-					}
+		if(game.status.turn == 1){
+			// move 1
+			if(y1 + 1 <= 8){
+				var occupant = getOccupant(x1, y1 + 1)
+				if(!occupant){			
+					validMoves.push([x1, y1 + 1])
 				}
+			}
+
+			// capture
+			if(y1 + 1 <= 8 && x1 + 1 <= 8){
+				var occupant = getOccupant(x1 + 1, y1 + 1)
+				if(occupant && game.status.turn != occupant.player){			
+					validMoves.push([x1 + 1, y1 + 1])
+				}
+			}
+
+			// capture
+			if(y1 + 1 <= 8 && x1 - 1 >= 1){
+				var occupant = getOccupant(x1 - 1, y1 + 1)
+				if(occupant && game.status.turn != occupant.player){			
+					validMoves.push([x1 - 1, y1 + 1])
+				}
+			}
+
+			// if we're on row 2, then we don't need to check if (2+2)  < 8
+			if(y1 == 2){	
+				var occupant = getOccupant(x1, y1 + 2)
+				if(!occupant){			
+					validMoves.push([x1, y1 + 2])
+				}
+			
+			}
+		}
+
+		if(game.status.turn == 2){
+			// move 1
+			if(y1 - 1 >= 1){
+				var occupant = getOccupant(x1, y1 - 1)
+				if(!occupant){			
+					validMoves.push([x1, y1 - 1])
+				}
+			}
+
+			// capture
+			if(y1 - 1 >= 1 && x1 + 1 <= 8){
+				var occupant = getOccupant(x1 + 1, y1 - 1)
+				if(occupant && game.status.turn != occupant.player){			
+					validMoves.push([x1 + 1, y1 - 1])
+				}
+			}
+
+			// capture
+			if(y1 - 1 >= 1 && x1 - 1 >= 1){
+				var occupant = getOccupant(x1 - 1, y1 - 1)
+				if(occupant && game.status.turn != occupant.player){			
+					validMoves.push([x1 - 1, y1 - 1])
+				}
+			}
+
+			// if we're on row 7, then we don't need to check if (7 - 2) > 1
+			if(y1 == 7){	
+				var occupant = getOccupant(x1, y1 - 2)
+				if(!occupant){			
+					validMoves.push([x1, y1 - 2])
+				}
+			
 			}
 		}
 
@@ -453,16 +575,60 @@
 
 	function getKnightMoves(x1, y1) {
 		var validMoves = []
+		
+		if(x1 - 1 >= 1 && y1 + 2 <= 8){
+			var occupant = getOccupant(x1 - 1, y1 + 2)
+			if(!occupant || game.status.turn != occupant.player){			
+				validMoves.push([x1 - 1, y1 + 2])
+			}
+		}
 
-		for (var x2 = 1; x2 <= 8; x2++) {
-			for (var y2 = 1; y2 <= 8; y2++) {
-				if (!(x2 == x1 && y2 == y1)) {
-					if ((Math.abs(x2 - x1) == 1) && (Math.abs(y2 - y1) == 2)) {
-						validMoves.push([x2, y2])
-					} else if ((Math.abs(x2 - x1) == 2) && (Math.abs(y2 - y1) == 1)) {
-						validMoves.push([x2, y2])
-					}
-				}
+		if(x1 + 1 <= 8 && y1 + 2 <= 8){
+			var occupant = getOccupant(x1 + 1, y1 + 2)
+			if(!occupant || game.status.turn != occupant.player){			
+				validMoves.push([x1 + 1, y1 + 2])
+			}
+		}
+
+		if(x1 + 2 <= 8 && y1 + 1 <= 8){
+			var occupant = getOccupant(x1 + 2, y1 + 1)
+			if(!occupant || game.status.turn != occupant.player){			
+				validMoves.push([x1 + 2, y1 + 1])
+			}
+		}
+
+		if(x1 + 2 <= 8 && y1 - 1 >= 1){
+			var occupant = getOccupant(x1 + 2, y1 - 1)
+			if(!occupant || game.status.turn != occupant.player){			
+				validMoves.push([x1 + 2, y1 - 1])
+			}
+		}
+
+		if(x1 + 1 <= 8 && y1 - 2 >= 1){
+			var occupant = getOccupant(x1 + 1, y1 - 2)
+			if(!occupant || game.status.turn != occupant.player){			
+				validMoves.push([x1 + 1, y1 - 2])
+			}
+		}
+
+		if(x1 - 1 >= 1 && y1 - 2 >= 1){
+			var occupant = getOccupant(x1 - 1, y1 - 2)
+			if(!occupant || game.status.turn != occupant.player){			
+				validMoves.push([x1 - 1, y1 - 2])
+			}
+		}
+
+		if(x1 - 2 >= 1 && y1 - 1 >= 1){
+			var occupant = getOccupant(x1 - 2, y1 - 1)
+			if(!occupant || game.status.turn != occupant.player){			
+				validMoves.push([x1 - 2, y1 - 1])
+			}
+		}
+
+		if(x1 - 2 >= 1 && y1 + 1 <= 8){
+			var occupant = getOccupant(x1 - 2, y1 + 1)
+			if(!occupant || game.status.turn != occupant.player){			
+				validMoves.push([x1 - 2, y1 + 1])
 			}
 		}
 
@@ -470,47 +636,38 @@
 	}
 
 	function getOccupant(x, y) {
-		
-		if(typeof(shadowBoard[x + ", " + y]) != "undefined"){		// if there's a piece at this square...
-			var shadowPiece = shadowBoard[x + "," + y]
+		if( (x >= 1 && x <= 8) && (y >= 1 && y <= 8) && typeof(shadowBoard[x + ", " + y]) != "undefined"){		// if there's a piece at this square...	
+			var shadowPiece = shadowBoard[x + ", " + y] || null
 			return game["player" + shadowPiece.player][shadowPiece.type]
+		} else {
+			return false
 		}
-
 	}
-
 
 	function switchTurn(){
 		// if it's player 1's turn, switch to player 2, or else player 1
 			game.status.turn = (game.status.turn == 1) ? 2 : 1 
 	}
 
-
 	function makeShadowBoard(){
+		shadowBoard = {}
 
-		var shadowBoard = {}
+		// check player 1
+			for (piece in game.player1){
+				var thisPiece = game.player1[piece]
 
-		for (piece in game.player1){
-			var thisPiece = game.player1[piece]
-
-			shadowBoard[thisPiece.x + ", " + thisPiece.y] = JSON.parse(JSON.stringify(thisPiece))			// shadowBoard["7,6"] = { ... }
-		}
-
-	// check player 2
-		for (piece in game.player2){
-			var thisPiece = game.player1[piece]
-
-			if (thisPiece.x == x && thisPiece.y == y){
-				return thisPiece
+				shadowBoard[thisPiece.x + ", " + thisPiece.y] = JSON.parse(JSON.stringify(thisPiece))			// shadowBoard["7,6"] = { ... }
 			}
-		}
 
+		// check player 2
+			for (piece in game.player2){
+				var thisPiece = game.player2[piece]
 
+				shadowBoard[thisPiece.x + ", " + thisPiece.y] = JSON.parse(JSON.stringify(thisPiece))
+			}
 	}
 
-
-
 /* UI */
-
 	function drawBoard() {
 		// loop through all coordinates (top-down, left-to-right)
 			for (y = 8; y >= 1; y--) {
@@ -531,11 +688,8 @@
 	}
 
 	function drawPieces() {
-
 		// figure out which squares are occupied/add info
-
-		makeShadowBoard();
-
+			makeShadowBoard()
 
 		//remove pieces
 			document.querySelectorAll(".piece").forEach(function(piece){
@@ -591,8 +745,5 @@
 							}
 					}
 				}
-		});
-	});
-
-
-
+		})
+	})
