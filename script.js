@@ -3,6 +3,7 @@
 		var lastSelectedPiece
 		var game
 		var shadowBoard
+		var trigger = (/Android|webOS|iPhone|iPad|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) ? "touchstart" : "click"
 
 	/* start up functions */
 		initializeGame()
@@ -10,16 +11,26 @@
 	/* listeners */
 		// picking a piece or square to move to
 			document.querySelectorAll(".square").forEach(function(square) {
-				square.addEventListener("click", selectSquare)
+				square.addEventListener(trigger, selectSquare)
 			})
 
 		// reset game
-			document.getElementById("reset").addEventListener("click", initializeGame)
+			document.getElementById("reset").addEventListener(trigger, initializeGame)
+
+		// undo last move
+			document.getElementById("undo").addEventListener(trigger, undoMove)
 
 		// promoting a pawn
 			document.querySelectorAll(".promote-button").forEach(function(button) {
-				button.addEventListener("click", promotePawn)
+				button.addEventListener(trigger, promotePawn)
 			})
+
+		// resign
+			document.getElementById("resign").addEventListener(trigger, resignGame)
+
+		// back and forward buttons
+			document.getElementById("history-back").addEventListener(trigger, showPreviousMove)
+			document.getElementById("history-forward").addEventListener(trigger, showNextMove)
 
 /*** CREATION ***/
 	/* initializeGame */
@@ -28,9 +39,14 @@
 			drawBoard()
 			drawPieces()
 			makeShadowBoard()
+			game.status.history.push(JSON.stringify(shadowBoard))
 
 			lastSelectedPiece = null
-			document.getElementById("message-panel").innerHTML = ""
+			document.getElementById("message-panel").className = ""
+			document.getElementById("message-heading").innerText = "white's turn"
+			document.getElementById("message-body").innerText = ""
+			document.getElementById("turn-current").innerText = 1
+			document.getElementById("turn-count").innerText = 1
 		}
 
 	/* createGame */
@@ -41,8 +57,10 @@
 						turn: 1,
 						possiblesMoves: [],
 						check: null,
-						over: false,
+						over: null,
+						winner: null,
 						needToPromote: false,
+						currentlyDisplayedMove: null,
 						history: []
 					},
 					player1: {
@@ -363,24 +381,61 @@
 
 			// check if the opponent is in check or checkmate
 				var opponent = (game.status.turn == 1) ? 2 : 1
-				var turnStatus = inCheckOrCheckmateOrDraw(opponent)
+				var opponentColor = (opponent == 1 ? "white" : "black")
+				if (!game.status.over) {
+					var turnStatus = inCheckOrCheckmateOrDraw(opponent)
+				} else {
+					var turnStatus = "gameover"
+				}
+
 			
+			// set by status
 				if (turnStatus == "checkmate") {
 					// checkmate
-						document.getElementById("message-panel").innerHTML = "CHECKMATE"
-						game.status.over = true
-						document.body.className = "gameover"
+						var winnerColor = (game.status.turn == 1 ? "white" : "black")
 
+						document.getElementById("message-panel").className = "checkmate"
+						document.getElementById("message-heading").innerText = "checkmate"
+						document.getElementById("message-body").innerText = winnerColor + " wins"
+						
+						game.status.over = "checkmate"
+						game.status.winner = winnerColor
+						document.body.className = "gameover"
+						game.status.currentlyDisplayedMove = game.status.history.length	
+						var justEnded = true
 				} else if (turnStatus == "draw") {
 					// draw
-						document.getElementById("message-panel").innerHTML = "DRAW"
-						game.status.over = true
+						document.getElementById("message-panel").className = "draw"
+						document.getElementById("message-heading").innerText = "draw"
+						document.getElementById("message-body").innerText = ""
+						
+						game.status.over = "draw"
+						game.status.winner = null
+						document.body.className = "gameover"
+						game.status.currentlyDisplayedMove = game.status.history.length
+						var justEnded = true
+
 				} else if (turnStatus == "check") {
 					// check
-						document.getElementById("message-panel").innerHTML = "CHECK"
+						document.getElementById("message-panel").className = "check"
+						document.getElementById("message-heading").innerText = "check"
+						document.getElementById("message-body").innerText = opponentColor + "'s turn"
+				} else if (turnStatus == "gameover") {
+					// gameover
+						if (game.status.winner) {
+							var loserColor = (game.status.winner == 1) ? "black" : "white"
+						} else {
+							var loserColor = ""
+						}
+						
+						document.getElementById("message-panel").className = "checkmate"
+						document.getElementById("message-heading").innerText = (game.status.over == "resign") ? (loserColor + " resigns") : game.status.over
+						document.getElementById("message-body").innerText = game.status.winner ? (game.status.winner + " wins") : ""
 				} else {
 					// other
-						document.getElementById("message-panel").innerHTML = ""
+						document.getElementById("message-panel").className = ""
+						document.getElementById("message-heading").innerText = opponentColor + "'s turn"
+						document.getElementById("message-body").innerText = ""
 				}
 
 			// game over?
@@ -397,13 +452,23 @@
 						}
 
 					// change border color
-						var borderColor = (game.status.turn == 1) ? "#888888" : "#333333"
-						document.getElementById("board").style.border = "10px solid " + borderColor 
+						var playerColor = (game.status.turn == 1) ? "white" : "black"
+						document.getElementById("board").dataset.turn = playerColor
 				}
 
 			// record current position
 				makeShadowBoard()
-				game.status.history.push(JSON.stringify(shadowBoard))
+				
+				if (!game.status.over || justEnded) {
+					game.status.history.push(JSON.stringify(shadowBoard))
+					document.getElementById("turn-current").innerText = Math.ceil((game.status.history.length) / 2)
+					document.getElementById("turn-count").innerText = Math.ceil((game.status.history.length) / 2)
+				}
+				else {
+					document.getElementById("turn-current").innerText = Math.ceil((game.status.currentlyDisplayedMove + 1) / 2)
+					document.getElementById("turn-count").innerText = Math.ceil((game.status.history.length) / 2)
+				}
+
 		}
 
 	/* makeShadowBoard */
@@ -565,11 +630,7 @@
 										
 											// capture
 												if (possibleMove[2]) {				
-													// var shadowPiece = shadowBoard[destination.dataset.x + ", " + destination.dataset.y] || null
-													// var actualPiece = game["player" + shadowPiece.player][shadowPiece.type]
-														possibleMove[2].alive = false
-
-													addToGraveyard(possibleMove[2])
+													possibleMove[2].alive = false
 												}
 
 											// set the new x and y
@@ -612,6 +673,7 @@
 												if (thisPiece.type.slice(0,4) == "pawn" && thisPiece.y == (game.status.turn == 1 ? 8 : 1)) {
 													game.status.needToPromote = thisPiece
 													drawPieces()
+													drawGraveyard()
 													unhighlightSquares()
 
 
@@ -622,13 +684,24 @@
 
 													displayPromotionPanel(game.status.turn)
 												} else {
-													// unselect the piece
-														lastSelectedPiece = null
-
 													// redraw the board and update the turn
 														makeShadowBoard()
 														switchTurn()
 														drawPieces()
+														drawGraveyard()
+
+													// unselect the piece from last move
+														if (document.querySelector(".last-moved")) {
+															document.querySelector(".last-moved").className = "square"
+														}
+														
+													// highlight the piece from this move
+														var pieceJustMoved = document.querySelector("[data-player='" + lastSelectedPiece.dataset.player + "'][data-name='" + lastSelectedPiece.dataset.name + "']") || null
+														pieceJustMoved.parentNode.className += " last-moved"
+
+													// set selection to null
+														lastSelectedPiece = null
+
 												}
 										} else {
 											// set the shadow board to current state
@@ -705,8 +778,139 @@
 							makeShadowBoard()
 							switchTurn()
 							drawPieces()
+							drawGraveyard()
 				}
 		}
+
+	/* undoMove */
+		function undoMove() {
+			if (!game.status.over && game.status.history.length > 1) {
+				// status
+					var turnCount = game.status.history.length - 1;
+					var previousTurn = JSON.parse(game.status.history[turnCount - 1])
+
+				// assume everyone's dead
+					for (var piece in game.player1) {
+						game.player1[piece].alive = false
+					}
+
+					for (var piece in game.player2) {
+						game.player2[piece].alive = false
+					}
+
+				// loop through history shadowboard and set pieces in game file
+					for (var square in previousTurn) {
+						var player = previousTurn[square].player
+						var type = previousTurn[square].type
+
+						game["player" + player][type] = JSON.parse(JSON.stringify(previousTurn[square]))
+					}
+
+				// remove latest history
+					game.status.history.pop()
+					game.status.history.pop()
+
+				// switch turn
+					switchTurn()
+					drawPieces()
+					drawGraveyard()
+					var lastMoved = document.querySelector(".last-moved")
+						lastMoved.className = lastMoved.className.replace("last-moved", "")
+			}
+		}
+
+	/* resignGame */
+		function resignGame() {
+			if (!game.status.over) {
+				var loserColor  = (game.status.turn == 1 ? "white" : "black")
+				var winnerColor = (game.status.turn == 1 ? "black" : "white")
+
+				document.getElementById("message-panel").className = "checkmate"
+				document.getElementById("message-heading").innerText = loserColor + " resigns"
+				document.getElementById("message-body").innerText = winnerColor + " wins"
+				
+				game.status.over = "resign"
+				game.status.winner = winnerColor
+				document.body.className = "gameover"
+				game.status.currentlyDisplayedMove = game.status.history.length
+			}
+		}
+
+	/* previous move*/
+		function showPreviousMove() {
+			if (game.status.over && game.status.currentlyDisplayedMove > 0) {
+			
+				// status
+					game.status.currentlyDisplayedMove--
+					var previousTurn = JSON.parse(game.status.history[game.status.currentlyDisplayedMove])
+
+				// assume everyone's dead
+					for (var piece in game.player1) {
+						game.player1[piece].alive = false
+					}
+
+					for (var piece in game.player2) {
+						game.player2[piece].alive = false
+					}
+
+				// loop through history shadowboard and set pieces in game file
+					for (var square in previousTurn) {
+						var player = previousTurn[square].player
+						var type = previousTurn[square].type
+
+						game["player" + player][type] = JSON.parse(JSON.stringify(previousTurn[square]))
+					}
+
+				// switch turn
+					switchTurn()
+					drawPieces()
+					drawGraveyard()
+
+				// remove the last moved selector
+					var lastMoved = document.querySelector(".last-moved")
+					if (lastMoved) {
+						lastMoved.className = lastMoved.className.replace("last-moved", "")
+					}
+			}
+		}
+
+		function showNextMove() {
+			if (game.status.over && game.status.currentlyDisplayedMove < (game.status.history.length - 1)) {
+			
+				// status
+					game.status.currentlyDisplayedMove++
+					var nextTurn = JSON.parse(game.status.history[game.status.currentlyDisplayedMove])
+
+				// assume everyone's dead
+					for (var piece in game.player1) {
+						game.player1[piece].alive = false
+					}
+
+					for (var piece in game.player2) {
+						game.player2[piece].alive = false
+					}
+
+				// loop through history shadowboard and set pieces in game file
+					for (var square in nextTurn) {
+						var player = nextTurn[square].player
+						var type = nextTurn[square].type
+
+						game["player" + player][type] = JSON.parse(JSON.stringify(nextTurn[square]))
+					}
+
+				// switch turn
+					switchTurn()
+					drawPieces()
+					drawGraveyard()
+
+				// remove the last moved selector
+					var lastMoved = document.querySelector(".last-moved")
+					if (lastMoved) {
+						lastMoved.className = lastMoved.className.replace("last-moved", "")
+					}
+			}
+		}
+
 
 /*** VISUALS ***/
 	/* highlightSquare */
@@ -718,14 +922,30 @@
 	/* unhighlightSquares */
 		function unhighlightSquares(){
 			document.querySelectorAll(".square").forEach(function(square){
-				square.className = "square"
+				square.className = square.className.replace("selected", "").replace("legalMove", "")
 			})
 		}
 
-	/* addToGraveyard */
-		function addToGraveyard(piece) {
+	/* drawGraveyard */
+		function drawGraveyard() {
+			// clear out graveyards
+				document.getElementById("graveyard-player1").innerHTML = ""
+				document.getElementById("graveyard-player2").innerHTML = ""
 
-			document.getElementById("graveyard-player" + piece.player).innerHTML += ("<span>" + piece.symbol + "</span>")	
+			// loop through game file
+				for (var p in game.player1) {
+					var piece = game.player1[p]
+					if (!piece.alive) {
+						document.getElementById("graveyard-player1").innerHTML += ("<span>" + piece.symbol + "</span>")	
+					}
+				}
+
+				for (var p in game.player2) {
+					var piece = game.player2[p]
+					if (!piece.alive) {
+						document.getElementById("graveyard-player2").innerHTML += ("<span>" + piece.symbol + "</span>")	
+					}
+				}
 		}
 
 	/* displayPromotionPanel */
@@ -734,7 +954,11 @@
 			document.getElementById("promotion-panel-2").style.display = "none"
 
 			if (player) {
-				document.getElementById("promotion-panel-" + player).style.display = "block"
+				document.getElementById("promotion-panel-" + player).style.display = "flex"
+				document.getElementById("message-panel").style.display = "none"
+			}
+			else {
+				document.getElementById("message-panel").style.display = "flex"
 			}
 		}
 	
@@ -1317,7 +1541,7 @@
 	/* isDraw */
 		function isDraw() {
 			// 3 repeat moves 
-				if (game.status.history.length >= 8) {
+				if (game.status.history.length > 8) {
 					var history = game.status.history
 					if (JSON.stringify(shadowBoard) == history[history.length - 4] && history[history.length - 4] == history[history.length - 8]) {
 						return true
